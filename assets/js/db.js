@@ -184,9 +184,17 @@ const DB = (() => {
             CREATE TABLE IF NOT EXISTS admin (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL
+                password_hash TEXT NOT NULL,
+                role TEXT DEFAULT 'admin',
+                reset_token TEXT,
+                reset_token_expires TEXT
             )
         `);
+
+        // Attempt to add columns if they don't exist (for existing tables)
+        try { await query(`ALTER TABLE admin ADD COLUMN role TEXT DEFAULT 'admin'`); } catch(e) {}
+        try { await query(`ALTER TABLE admin ADD COLUMN reset_token TEXT`); } catch(e) {}
+        try { await query(`ALTER TABLE admin ADD COLUMN reset_token_expires TEXT`); } catch(e) {}
     }
 
     // ── Post CRUD Operations ───────────────────────────────────────
@@ -272,15 +280,44 @@ const DB = (() => {
         return await query(`SELECT * FROM admin WHERE username = ?`, [username]);
     }
 
-    async function createAdmin(username, passwordHash) {
+    async function getAllAdmins() {
+        return await query(`SELECT id, username, role FROM admin ORDER BY id ASC`);
+    }
+
+    async function createAdmin(username, passwordHash, role = 'admin') {
         return await query(
-            `INSERT INTO admin (username, password_hash) VALUES (?, ?)`,
-            [username, passwordHash]
+            `INSERT INTO admin (username, password_hash, role) VALUES (?, ?, ?)`,
+            [username, passwordHash, role]
         );
+    }
+
+    async function updateAdmin(id, username, role) {
+        return await query(
+            `UPDATE admin SET username = ?, role = ? WHERE id = ?`,
+            [username, role, parseInt(id)]
+        );
+    }
+
+    async function deleteAdmin(id) {
+        return await query(`DELETE FROM admin WHERE id = ?`, [parseInt(id)]);
     }
 
     async function getAdminCount() {
         return await query(`SELECT COUNT(*) as count FROM admin`);
+    }
+
+    async function setAdminResetToken(username, token, expires) {
+        return await query(
+            `UPDATE admin SET reset_token = ?, reset_token_expires = ? WHERE username = ?`,
+            [token, expires, username]
+        );
+    }
+
+    async function updateAdminPassword(username, newHash) {
+        return await query(
+            `UPDATE admin SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE username = ?`,
+            [newHash, username]
+        );
     }
 
     // ── Save Config ────────────────────────────────────────────────
@@ -307,7 +344,12 @@ const DB = (() => {
         getAdjacentPosts,
         getCategories,
         getAdminByUsername,
+        getAllAdmins,
         createAdmin,
+        updateAdmin,
+        deleteAdmin,
         getAdminCount,
+        setAdminResetToken,
+        updateAdminPassword,
     };
 })();

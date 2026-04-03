@@ -420,6 +420,7 @@ const UI = (() => {
                         <button class="btn btn-primary btn-full" type="submit" id="login-btn">Sign In</button>
                     </form>
                     <div style="text-align:center;margin-top:16px;">
+                        <a href="#admin/forgot-password" style="font-size:0.85rem;color:var(--text-secondary);display:block;margin-bottom:12px;">Forgot your password?</a>
                         <button class="btn btn-secondary btn-sm" onclick="App.showSetupAdmin()" style="font-size:0.8rem;">
                             First time? Create admin account
                         </button>
@@ -503,6 +504,9 @@ const UI = (() => {
                         <a href="#admin/editor" class="btn btn-primary">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                             New Post
+                        </a>
+                        <a href="#admin/users" class="btn btn-secondary" title="Manage Users">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                         </a>
                         <button class="btn btn-secondary" onclick="App.logout()">Logout</button>
                     </div>
@@ -627,6 +631,126 @@ const UI = (() => {
         `;
     }
 
+    // ── Forgot Password Page ───────────────────────────────────────
+    function renderForgotPassword() {
+        return `
+            <div class="admin-login fade-in">
+                <div class="login-card">
+                    <h1>Forgot Password</h1>
+                    <p class="login-subtitle">Enter your username to reset password.</p>
+                    <form id="forgot-password-form">
+                        <div class="form-group">
+                            <label class="form-label" for="forgot-username">Username</label>
+                            <input class="form-input" type="text" id="forgot-username" placeholder="Enter username" required>
+                        </div>
+                        <button class="btn btn-primary btn-full" type="submit" id="forgot-btn">Request Reset Link</button>
+                    </form>
+                    <div style="text-align:center;margin-top:16px;">
+                        <a href="#admin" style="font-size:0.85rem;color:var(--text-secondary);">&larr; Back to login</a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // ── Reset Password Page ────────────────────────────────────────
+    function renderResetPassword(username, token) {
+        return `
+            <div class="admin-login fade-in">
+                <div class="login-card">
+                    <h1>Reset Password</h1>
+                    <p class="login-subtitle">Set a new password for <strong>${escapeHtml(username)}</strong></p>
+                    <form id="reset-password-form">
+                        <input type="hidden" id="reset-username" value="${escapeHtml(username)}">
+                        <input type="hidden" id="reset-token" value="${escapeHtml(token)}">
+                        
+                        <div class="form-group">
+                            <label class="form-label" for="reset-new-password">New Password</label>
+                            <input class="form-input" type="password" id="reset-new-password" placeholder="New strong password" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="reset-confirm-password">Confirm Password</label>
+                            <input class="form-input" type="password" id="reset-confirm-password" placeholder="Confirm new password" required>
+                        </div>
+                        <button class="btn btn-primary btn-full" type="submit" id="reset-btn">Reset Password</button>
+                    </form>
+                </div>
+            </div>
+        `;
+    }
+
+    // ── Admin Users Page ───────────────────────────────────────────
+    function renderAdminUsers(admins) {
+        const rows = admins.map(adm => `
+            <tr>
+                <td style="font-weight: 600;">${escapeHtml(adm.username)}</td>
+                <td>
+                    <div class="table-actions" style="justify-content: flex-end;">
+                        <span class="status-badge drafted" style="background:var(--bg-secondary);color:var(--text-primary);margin-right:12px;">${escapeHtml(adm.role || 'admin')}</span>
+                        <button class="btn btn-secondary btn-sm" onclick="App.editUser(${adm.id}, '${escapeHtml(adm.username)}', '${escapeHtml(adm.role || 'admin')}')">
+                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                           Edit
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="App.deleteUser(${adm.id})">
+                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                           Delete
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        return `
+            <div class="admin-dashboard fade-in">
+                <div class="dashboard-header">
+                    <h1>Manage Users</h1>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <a href="#admin/dashboard" class="btn btn-secondary">&larr; Dashboard</a>
+                    </div>
+                </div>
+
+                <div class="posts-table-wrapper" style="margin-bottom: 32px;">
+                    <table class="posts-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="login-card" style="box-shadow: var(--shadow-sm); max-width: 100%;">
+                    <h3 style="margin-bottom: 24px;">Add New Admin</h3>
+                    <form id="add-admin-form" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label class="form-label" for="new-admin-username">Username</label>
+                            <input class="form-input" type="text" id="new-admin-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="new-admin-password">Password</label>
+                            <input class="form-input" type="password" id="new-admin-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="new-admin-role">Role</label>
+                            <select class="form-input" id="new-admin-role" style="appearance: auto;">
+                                <option value="admin">Admin</option>
+                                <option value="editor">Editor</option>
+                                <option value="author">Author</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="grid-column: span 3;">
+                            <button class="btn btn-primary" type="submit" style="width: auto;">Create User</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+    }
+
     return {
         showToast,
         showLoader,
@@ -651,5 +775,8 @@ const UI = (() => {
         renderAdminSetup,
         renderDashboard,
         renderEditorPage,
+        renderForgotPassword,
+        renderResetPassword,
+        renderAdminUsers,
     };
 })();

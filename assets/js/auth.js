@@ -88,6 +88,93 @@ const Auth = (() => {
         return true;
     }
 
+    // ── Create Additional Admin ────────────────────────────────────
+    async function createAdditionalAdmin(username, password, role = 'admin') {
+        if (!isAuthenticated()) throw new Error('Not authorized');
+        
+        try {
+            const passwordHash = await hashPassword(password);
+            await DB.createAdmin(username, passwordHash, role);
+            return true;
+        } catch (e) {
+            if (e.message.includes('UNIQUE constraint failed')) {
+                throw new Error('Username already exists');
+            }
+            throw e;
+        }
+    }
+
+    // ── Update Admin ───────────────────────────────────────────────
+    async function updateAdmin(id, username, role) {
+        if (!isAuthenticated()) throw new Error('Not authorized');
+        await DB.updateAdmin(id, username, role);
+        return true;
+    }
+
+    // ── Delete Admin ───────────────────────────────────────────────
+    async function deleteAdmin(id) {
+        if (!isAuthenticated()) throw new Error('Not authorized');
+        const count = await DB.getAdminCount();
+        if (count.rows[0].count <= 1) {
+            throw new Error('Cannot delete the last remaining admin');
+        }
+        await DB.deleteAdmin(id);
+        return true;
+    }
+
+    // ── Change Password ────────────────────────────────────────────
+    async function changePassword(oldPassword, newPassword) {
+        if (!isAuthenticated()) throw new Error('Not authorized');
+        const session = getSession();
+
+        const result = await DB.getAdminByUsername(session.username);
+        if (!result.rows.length) throw new Error('User not found');
+        
+        const oldHash = await hashPassword(oldPassword);
+        if (result.rows[0].password_hash !== oldHash) {
+            throw new Error('Incorrect current password');
+        }
+
+        const newHash = await hashPassword(newPassword);
+        await DB.updateAdminPassword(session.username, newHash);
+        return true;
+    }
+
+    // ── Forgot Password ────────────────────────────────────────────
+    async function forgotPassword(username) {
+        const result = await DB.getAdminByUsername(username);
+        if (!result.rows.length) {
+            // Silently pretend it worked for security, but return null
+            return null;
+        }
+        
+        const token = generateToken();
+        const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hr
+        await DB.setAdminResetToken(username, token, expires);
+        
+        return token;
+    }
+
+    // ── Reset Password ─────────────────────────────────────────────
+    async function resetPassword(username, token, newPassword) {
+        const result = await DB.getAdminByUsername(username);
+        if (!result.rows.length) throw new Error('Invalid request');
+        
+        const admin = result.rows[0];
+        if (!admin.reset_token || admin.reset_token !== token) {
+            throw new Error('Invalid or expired token');
+        }
+        
+        const expires = new Date(admin.reset_token_expires).getTime();
+        if (Date.now() > expires) {
+            throw new Error('Token has expired');
+        }
+        
+        const newHash = await hashPassword(newPassword);
+        await DB.updateAdminPassword(username, newHash);
+        return true;
+    }
+
     return {
         hashPassword,
         login,
@@ -95,5 +182,11 @@ const Auth = (() => {
         isAuthenticated,
         getSession,
         setupAdmin,
+        createAdditionalAdmin,
+        updateAdmin,
+        deleteAdmin,
+        changePassword,
+        forgotPassword,
+        resetPassword,
     };
 })();
