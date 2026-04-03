@@ -115,7 +115,7 @@ const Auth = (() => {
     async function deleteAdmin(id) {
         if (!isAuthenticated()) throw new Error('Not authorized');
         const count = await DB.getAdminCount();
-        if (count.rows[0].count <= 1) {
+        if (parseInt(count.rows[0].count) <= 1) {
             throw new Error('Cannot delete the last remaining admin');
         }
         await DB.deleteAdmin(id);
@@ -137,6 +137,15 @@ const Auth = (() => {
 
         const newHash = await hashPassword(newPassword);
         await DB.updateAdminPassword(session.username, newHash);
+        return true;
+    }
+
+    // ── Force Update Password (Admin override) ─────────────────────
+    async function forceUpdatePassword(username, newPassword) {
+        if (!isAuthenticated()) throw new Error('Not authorized');
+        
+        const newHash = await hashPassword(newPassword);
+        await DB.updateAdminPassword(username, newHash);
         return true;
     }
 
@@ -186,6 +195,7 @@ const Auth = (() => {
         updateAdmin,
         deleteAdmin,
         changePassword,
+        forceUpdatePassword,
         forgotPassword,
         resetPassword,
     };

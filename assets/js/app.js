@@ -363,43 +363,67 @@ const App = (() => {
         }
     }
 
-    // ── Edit/Delete User ───────────────────────────────────────────
-    async function editUser(id, oldUsername, oldRole) {
-        const newUsername = prompt("Enter new username:", oldUsername);
-        if (!newUsername || newUsername.trim() === "") return;
-        
-        const newRoleVal = prompt("Enter new role (admin, editor, author):", oldRole);
-        if (!newRoleVal || newRoleVal.trim() === "") return;
-
-        UI.showLoader();
+    // ── Edit/Delete/Password User ───────────────────────────────────────────
+    async function updateUserPassword(username) {
+        console.log('[PWD] Start - username:', username);
         try {
-            await Auth.updateAdmin(id, newUsername.trim(), newRoleVal.trim().toLowerCase());
+            const newPassword = await UI.showPasswordModal(username);
+            if (!newPassword) { console.log('[PWD] Cancelled'); return; }
+            console.log('[PWD] Got password, updating...');
+            UI.showLoader();
+            await Auth.forceUpdatePassword(username, newPassword);
+            UI.hideLoader();
+            UI.showToast(`Password for ${username} updated successfully!`, 'success');
+        } catch (error) {
+            UI.hideLoader();
+            console.error('[PWD] Error:', error);
+            UI.showToast('Update failed: ' + error.message, 'error');
+        }
+    }
+
+    async function editUser(id, oldUsername, oldRole) {
+        console.log('[EDIT] Start - id:', id, 'type:', typeof id, 'user:', oldUsername, 'role:', oldRole);
+        try {
+            const result = await UI.showEditUserModal(id, oldUsername, oldRole);
+            console.log('[EDIT] Modal result:', JSON.stringify(result));
+            if (!result) { console.log('[EDIT] Cancelled'); return; }
+            
+            console.log('[EDIT] Calling Auth.updateAdmin...');
+            UI.showLoader();
+            await Auth.updateAdmin(id, result.username, result.role);
+            UI.hideLoader();
+            console.log('[EDIT] Update succeeded!');
             UI.showToast('User updated successfully', 'success');
             if (window.location.hash.includes('users')) {
                 renderUsers();
             }
         } catch (error) {
-            UI.showToast('Update failed: ' + error.message, 'error');
-        } finally {
             UI.hideLoader();
+            console.error('[EDIT] FAILED:', error);
+            UI.showToast('Update failed: ' + (error.message || error), 'error');
         }
     }
 
     async function deleteUser(id) {
-        const confirmed = await UI.confirm('Delete User', 'Are you sure you want to delete this user?');
-        if (!confirmed) return;
-
-        UI.showLoader();
+        console.log('[DELETE] Start - id:', id, 'type:', typeof id);
         try {
+            const confirmed = await UI.confirm('Delete User', 'Are you sure you want to delete this user?');
+            console.log('[DELETE] Confirmed:', confirmed);
+            if (!confirmed) { console.log('[DELETE] Cancelled'); return; }
+
+            console.log('[DELETE] Calling Auth.deleteAdmin...');
+            UI.showLoader();
             await Auth.deleteAdmin(id);
+            UI.hideLoader();
+            console.log('[DELETE] Delete succeeded!');
             UI.showToast('User deleted', 'success');
             if (window.location.hash.includes('users')) {
                 renderUsers();
             }
         } catch (error) {
-            UI.showToast('Delete failed: ' + error.message, 'error');
-        } finally {
             UI.hideLoader();
+            console.error('[DELETE] FAILED:', error);
+            UI.showToast('Delete failed: ' + (error.message || error), 'error');
         }
     }
 
@@ -568,6 +592,7 @@ const App = (() => {
         showSetupAdmin,
         editUser,
         deleteUser,
+        updateUserPassword,
     };
 })();
 

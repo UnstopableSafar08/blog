@@ -101,6 +101,7 @@ const DB = (() => {
         };
 
         try {
+            console.log('[DB] Executing SQL:', sql, 'Args:', JSON.stringify(stmtArgs));
             const response = await fetch(`${url}/v2/pipeline`, {
                 method: 'POST',
                 headers: {
@@ -112,14 +113,17 @@ const DB = (() => {
 
             if (!response.ok) {
                 const errorText = await response.text();
+                console.error('[DB] HTTP Error:', response.status, errorText);
                 throw new Error(`Database error (${response.status}): ${errorText}`);
             }
 
             const data = await response.json();
+            console.log('[DB] Response:', JSON.stringify(data).substring(0, 500));
 
             if (data.results && data.results[0]) {
                 const result = data.results[0];
                 if (result.type === 'error') {
+                    console.error('[DB] SQL Error:', result.error);
                     throw new Error(`SQL Error: ${result.error.message}`);
                 }
                 if (result.type === 'ok' && result.response) {
